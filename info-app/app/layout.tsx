@@ -34,7 +34,7 @@ export default function RootLayout({
             <Navbar />
 
             {/* Main content area */}
-            <main className="flex-1 w-full max-w-5xl p-5">{children}</main>
+            <main className="flex-1">{children}</main>
 
             {/* Footer component */}
             <Footer />
