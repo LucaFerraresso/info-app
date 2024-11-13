@@ -5,7 +5,6 @@ import { createClient } from "@/utils/supabase/client";
 import { redirect } from "next/navigation";
 
 export default function Page() {
-  const supabase = createClient();
   const handleClick = () => {
     redirect("/notes");
   };
