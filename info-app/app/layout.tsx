@@ -2,6 +2,7 @@ import { GeistSans } from "geist/font/sans";
 import { ThemeProvider } from "next-themes";
 import Navbar from "@/components/section/navbar";
 import Footer from "@/components/section/footer";
+
 import "./globals.css";
 
 const defaultUrl = process.env.VERCEL_URL
@@ -21,7 +22,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={GeistSans.className} suppressHydrationWarning>
-      <body className="bg-background text-foreground">
+      <body className="bg-background text-foreground ">
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
@@ -34,7 +35,9 @@ export default function RootLayout({
             <Navbar />
 
             {/* Main content area */}
-            <main className="flex-1">{children}</main>
+            <main className="flex-1 flex flex-col justify-center items-center">
+              {children}
+            </main>
 
             {/* Footer component */}
             <Footer />
