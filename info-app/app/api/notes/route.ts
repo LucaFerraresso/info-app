@@ -1,39 +1,37 @@
-import { createClient } from "@/utils/supabase/server";
+import { db } from "@/utils/firebase/client";
+import {
+  collection,
+  getDocs,
+  orderBy,
+  limit,
+  query,
+  startAfter,
+  setDoc,
+  doc,
+} from "firebase/firestore";
 
-// **GET**: Recupera tutte le note
+const notesCollection = collection(db, "notes");
+
 export async function GET(request: Request) {
-  const url = new URL(request.url);
-  const page = parseInt(url.searchParams.get("page") || "1");
-  const limit = parseInt(url.searchParams.get("limit") || "5");
+  try {
+    const snapshot = await getDocs(
+      query(notesCollection, orderBy("createdAt"), limit(20)) // Ottieni tutte le note senza paginazione
+    );
+    const notes = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
 
-  const supabase = await createClient();
-
-  const { data, error, count } = await supabase
-    .from("notes")
-    .select("*", { count: "exact" })
-    .range((page - 1) * limit, page * limit - 1);
-
-  // Verifica se count è null e fornisce un valore di fallback di 0
-  const totalCount = count ?? 0;
-
-  if (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ notes }), { status: 200 });
+  } catch (error) {
+    console.error("Error fetching notes:", error);
+    return new Response(JSON.stringify({ error: "Failed to fetch notes" }), {
       status: 500,
     });
   }
-
-  return new Response(
-    JSON.stringify({
-      notes: data,
-      totalPages: Math.ceil(totalCount / limit), // Calcola totalPages usando totalCount
-    }),
-    { status: 200 }
-  );
 }
-
-// **POST**: Crea una nuova nota
 export async function POST(request: Request) {
-  const { title } = await request.json(); // Ottieni il titolo dal corpo della richiesta
+  const { title } = await request.json();
 
   if (!title) {
     return new Response(JSON.stringify({ error: "Title is required" }), {
@@ -41,20 +39,14 @@ export async function POST(request: Request) {
     });
   }
 
-  try {
-    const supabase = await createClient();
-    const { data, error } = await supabase.from("notes").insert([{ title }]);
+  const newNote = {
+    title,
+    status: ["Undone"], // Stato iniziale come array
+    createdAt: new Date(), // Data di creazione
+  };
 
-    if (error) {
-      return new Response(JSON.stringify({ error: error.message }), {
-        status: 500,
-      });
-    }
+  const docRef = doc(notesCollection);
+  await setDoc(docRef, newNote);
 
-    return new Response(JSON.stringify(data), { status: 201 });
-  } catch (error) {
-    return new Response(JSON.stringify({ error: "Failed to create note" }), {
-      status: 500,
-    });
-  }
+  return new Response(JSON.stringify(newNote), { status: 201 });
 }

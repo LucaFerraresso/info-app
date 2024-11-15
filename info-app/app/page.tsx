@@ -8,8 +8,8 @@ export default function Page() {
     redirect("/notes"); // Redirect alla pagina delle note
   };
 
-  const handleClickArticles = () => {
-    redirect("/articles"); // Redirect alla pagina degli articoli
+  const handleClickLogin = () => {
+    redirect("/login"); // Redirect alla pagina degli articoli
   };
 
   return (
@@ -38,10 +38,10 @@ export default function Page() {
             <Edit /> <span>Le tue Note</span>
           </button>
           <button
-            onClick={handleClickArticles}
+            onClick={handleClickLogin}
             className="bg-secondary text-secondary-foreground py-3 px-6 rounded-md shadow-md hover:bg-secondary-foreground hover:text-secondary transition duration-300 ease-in-out transform hover:scale-105 flex items-center gap-2"
           >
-            <FileText /> <span>Articoli</span>
+            <FileText /> <span>Login (providers)</span>
           </button>
         </div>
       </div>

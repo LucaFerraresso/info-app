@@ -2,8 +2,11 @@ import { GeistSans } from "geist/font/sans";
 import { ThemeProvider } from "next-themes";
 import Navbar from "@/components/section/navbar";
 import Footer from "@/components/section/footer";
+import "react-toastify/dist/ReactToastify.css";
+import { ToastContainer } from "react-toastify";
 
 import "./globals.css";
+import { AuthProvider } from "@/utils/firebase/context";
 
 const defaultUrl = process.env.VERCEL_URL
   ? `https://${process.env.VERCEL_URL}`
@@ -31,16 +34,20 @@ export default function RootLayout({
         >
           {/* Main container to hold the whole layout */}
           <div className="flex flex-col min-h-screen">
-            {/* Navbar component */}
-            <Navbar />
+            <AuthProvider>
+              {/* Navbar component */}
+              <Navbar />
 
-            {/* Main content area */}
-            <main className="flex-1 flex flex-col justify-center items-center">
-              {children}
-            </main>
+              {/* Main content area */}
 
-            {/* Footer component */}
-            <Footer />
+              <main className="flex-1 flex flex-col justify-center items-center">
+                {children}
+              </main>
+
+              {/* Footer component */}
+              <Footer />
+              <ToastContainer />
+            </AuthProvider>
           </div>
         </ThemeProvider>
       </body>

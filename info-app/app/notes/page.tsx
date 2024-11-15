@@ -1,18 +1,17 @@
 "use client";
-import { Edit, TrashIcon, Loader2 } from "lucide-react";
-import { redirect } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useState, useEffect } from "react";
+import { Loader2, TrashIcon } from "lucide-react";
 
 // Funzione generica per fare richieste API
 const apiRequest = async (url: string, options: RequestInit = {}) => {
   try {
     const response = await fetch(url, options);
-    const data = await response.json();
+    const data = response.status !== 204 ? await response.json() : null;
     if (!response.ok)
-      throw new Error(data.error || "Errore nella richiesta API");
+      throw new Error(data?.error || "Errore nella richiesta API");
     return data;
   } catch (error) {
-    console.error(error);
+    console.error("API error:", error);
     return null;
   }
 };
@@ -20,62 +19,45 @@ const apiRequest = async (url: string, options: RequestInit = {}) => {
 export default function Page() {
   const [notes, setNotes] = useState<any[]>([]);
   const [newNoteTitle, setNewNoteTitle] = useState("");
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
 
-  const limit = 5;
-
-  // Funzione per caricare le note con paginamento
-  const fetchNotesData = async () => {
+  // Ottimizzazione delle chiamate API con useCallback
+  const fetchNotesData = useCallback(async () => {
     setIsLoading(true);
-    const data = await apiRequest(`/api/notes?page=${page}&limit=${limit}`);
-    if (data) {
+    const data = await apiRequest(`/api/notes`);
+    if (data && data.notes) {
       setNotes(data.notes);
-      setTotalPages(data.totalPages);
     }
     setIsLoading(false);
-  };
+  }, []);
 
-  // Funzione per creare una nuova nota
-  const handleCreateNote = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newNoteTitle.trim()) {
-      console.error("Il titolo non può essere vuoto");
-      return;
-    }
+  // Aggiungi una nuova nota
+  const handleCreateNote = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!newNoteTitle.trim()) {
+        console.error("Il titolo non può essere vuoto");
+        return;
+      }
 
-    setIsLoading(true);
+      setIsLoading(true);
+      const newNote = await apiRequest("/api/notes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: newNoteTitle }),
+      });
 
-    const newNote = await apiRequest("/api/notes", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: newNoteTitle }),
-    });
+      if (newNote) {
+        setNotes((prevNotes) => [newNote, ...prevNotes]); // Aggiungi la nuova nota senza fare una nuova richiesta
+      }
+      setNewNoteTitle(""); // Reset del titolo
+      setIsLoading(false);
+    },
+    [newNoteTitle]
+  );
 
-    if (newNote) {
-      setNotes((prevNotes) => [newNote, ...prevNotes]); // Aggiungi la nuova nota in cima alla lista
-    }
-
-    setNewNoteTitle("");
-    fetchNotesData();
-    setIsLoading(false);
-  };
-
-  // Funzione per eliminare una nota
-  const handleDeleteNote = async (id: number) => {
-    setIsLoading(true);
-    const result = await apiRequest(`/api/notes/${id}`, { method: "DELETE" });
-
-    if (result) {
-      setNotes((prevNotes) => prevNotes.filter((note) => note.id !== id)); // Rimuovi la nota dalla lista
-    }
-    fetchNotesData();
-    setIsLoading(false);
-  };
-
-  // Funzione per aggiornare lo stato della nota
-  const handleUpdateStatus = async (id: number, status: string) => {
+  // Aggiorna lo stato della nota
+  const handleUpdateStatus = useCallback(async (id: string, status: string) => {
     setIsLoading(true);
     const updatedNote = await apiRequest(`/api/notes/${id}`, {
       method: "PATCH",
@@ -90,14 +72,25 @@ export default function Page() {
         )
       );
     }
+    setIsLoading(false);
+  }, []);
+
+  // Elimina una nota
+  const handleDeleteNote = useCallback(async (id: string) => {
+    setIsLoading(true);
+    const result = await apiRequest(`/api/notes/${id}`, { method: "DELETE" });
+
+    if (result) {
+      setNotes((prevNotes) => prevNotes.filter((note) => note.id !== id)); // Rimuovi la nota senza fare una nuova richiesta
+    }
     fetchNotesData();
     setIsLoading(false);
-  };
+  }, []);
 
-  // Effettua il caricamento iniziale delle note
+  // Carica le note inizialmente
   useEffect(() => {
     fetchNotesData();
-  }, [page]);
+  }, []); // `fetchNotesData` è memorizzato e non cambia
 
   return (
     <div className="min-h-screen max-w-3xl mx-auto p-6 space-y-6 dark:bg-background dark:text-white">
@@ -106,115 +99,61 @@ export default function Page() {
       </h1>
 
       {/* Form per la creazione di una nuova nota */}
-      <form
-        onSubmit={handleCreateNote}
-        className="flex items-center gap-4 dark:text-white"
-      >
+      <form onSubmit={handleCreateNote}>
         <input
+          className="border p-2 w-full"
           type="text"
+          placeholder="Aggiungi una nuova nota"
           value={newNoteTitle}
           onChange={(e) => setNewNoteTitle(e.target.value)}
-          placeholder="Aggiungi una nuova nota"
-          className="flex-1 p-2 border border-border rounded-md dark:bg-card dark:text-white dark:border-card-foreground focus:outline-none transition duration-300 ease-in-out"
         />
         <button
+          className="bg-primary text-white p-2 mt-4 w-full"
           type="submit"
-          aria-label="Crea nuova nota"
-          className="bg-accent text-accent-foreground py-2 px-4 rounded-md flex items-center gap-2 hover:bg-accent-foreground hover:text-accent transition duration-300 ease-in-out"
           disabled={isLoading}
         >
-          {isLoading ? (
-            <>
-              <Loader2 className="animate-spin" /> Caricamento...
-            </>
-          ) : (
-            <>
-              Nuova Nota <Edit />
-            </>
-          )}
+          {isLoading ? <Loader2 className="animate-spin" /> : "Crea nota"}
         </button>
       </form>
-
-      {/* Lista delle note */}
-      <ul className="space-y-4 min-h-[200px]">
-        {notes.length === 0 ? (
-          <li className="text-center text-muted dark:text-white">
-            Nessuna nota disponibile
-          </li>
+      <ul className="space-y-4">
+        {isLoading ? (
+          <p className="text-center">Caricamento in corso...</p>
+        ) : notes.length === 0 ? (
+          <p className="text-center">Nessuna nota disponibile</p>
         ) : (
           notes.map((note) => (
             <li
-              key={note.id}
-              className="p-4 border border-muted rounded-md shadow-sm dark:bg-card dark:border-card-foreground transition-all duration-300 ease-in-out hover:scale-105 hover:shadow-lg"
+              key={note.id} // Chiave unica per ogni elemento della lista
+              className="flex items-center justify-between p-4 border-b"
             >
-              <div className="flex justify-between items-center space-x-4">
-                <h2 className="text-xl font-semibold text-primary dark:text-white">
-                  {note.title}
-                </h2>
+              <div>
+                <p className="text-xl font-semibold">{note.title}</p>
+                <p className="text-sm text-gray-500">{note.status}</p>
+              </div>
 
-                {/* Stato della nota (Fatto, Da fare, In progress) */}
-                <div className="flex items-center gap-2">
-                  <select
-                    value={note.status || "da_fare"}
-                    onChange={(e) =>
-                      handleUpdateStatus(note.id, e.target.value)
-                    }
-                    disabled={isLoading}
-                    className="p-2 border border-border rounded-md dark:bg-card dark:text-white dark:border-card-foreground focus:outline-none"
-                  >
-                    <option value="da_fare">Da fare</option>
-                    <option value="in_progress">In progress</option>
-                    <option value="fatto">Fatto</option>
-                  </select>
+              {/* Selezione dello stato */}
+              <div className="flex space-x-4">
+                <select
+                  value={note.status[0]}
+                  onChange={(e) => handleUpdateStatus(note.id, e.target.value)}
+                  className="border p-2"
+                >
+                  <option value="In Progress">In Progress</option>
+                  <option value="Undone">Undone</option>
+                  <option value="Done">Done</option>
+                </select>
 
-                  {/* Elimina la nota */}
-                  <button
-                    onClick={() => handleDeleteNote(note.id)}
-                    aria-label="Elimina nota"
-                    className="text-destructive hover:text-destructive-foreground disabled:text-muted-foreground transition duration-200 ease-in-out"
-                    disabled={isLoading}
-                  >
-                    {isLoading ? (
-                      <Loader2 className="animate-spin" />
-                    ) : (
-                      <TrashIcon />
-                    )}
-                  </button>
-                </div>
+                <button
+                  className="text-red-500"
+                  onClick={() => handleDeleteNote(note.id)}
+                >
+                  <TrashIcon />
+                </button>
               </div>
             </li>
           ))
         )}
       </ul>
-
-      {/* Paginazione */}
-      <div className="flex justify-between items-center">
-        <button
-          onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
-          disabled={page === 1 || isLoading}
-          className="px-4 py-2 bg-accent text-accent-foreground rounded-md disabled:opacity-50 hover:bg-accent-foreground hover:text-accent transition duration-200 ease-in-out"
-        >
-          Prev
-        </button>
-        <span className="text-muted dark:text-muted-foreground">
-          Pagina {page} di {totalPages}
-        </span>
-        <button
-          onClick={() => setPage((prev) => Math.min(prev + 1, totalPages))}
-          disabled={page === totalPages || isLoading}
-          className="px-4 py-2 bg-accent text-accent-foreground rounded-md disabled:opacity-50 hover:bg-accent-foreground hover:text-accent transition duration-200 ease-in-out"
-        >
-          Next
-        </button>
-      </div>
-
-      {/* Home button */}
-      <button
-        onClick={() => redirect("/")}
-        className="mt-4 bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary-foreground hover:text-primary transition duration-300 ease-in-out"
-      >
-        Home
-      </button>
     </div>
   );
 }
